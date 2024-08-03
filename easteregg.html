@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Easter Egg</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+            color: white;
+            font-family: 'Century Gothic', sans-serif;
+        }
+
+        #player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            opacity: 0; /* Make the iframe invisible */
+        }
+
+        #click-to-reveal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: white;
+            font-family: 'Century Gothic', sans-serif;
+            text-align: center;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+        var player;
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('player', {
+                videoId: 'dex4fmYpppU',
+                playerVars: {
+                    'autoplay': 1,
+                    'controls': 0,
+                    'showinfo': 0,
+                    'rel': 0
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            event.target.setVolume(100); // Set volume to maximum
+            event.target.playVideo();
+        }
+
+        function onPlayerStateChange(event) {
+            var clickToReveal = document.getElementById('click-to-reveal');
+            if (event.data === YT.PlayerState.PLAYING) {
+                clickToReveal.style.display = 'none';
+            } else {
+                clickToReveal.style.display = 'block';
+            }
+
+            if (event.data === YT.PlayerState.ENDED) {
+                window.location.href = 'index.html'; // Redirect to index.html when video ends
+            }
+        }
+
+        function playVideo() {
+            player.playVideo();
+        }
+    </script>
+</head>
+<body>
+    <div id="click-to-reveal" onclick="playVideo()">Click to reveal</div>
+    <div id="player"></div>
+</body>
+</html>
