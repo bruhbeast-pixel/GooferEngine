@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goofer Editor</title>
+    <link rel="icon" href="icon.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Century Gothic', sans-serif;
+            background: linear-gradient(135deg, #ffaf40, #ffa502);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+            overflow: hidden;
+            animation: backgroundAnimation 15s infinite alternate;
+            box-sizing: border-box;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        @keyframes backgroundAnimation {
+            0% { background: linear-gradient(135deg, #ffaf40, #ffa502); }
+            100% { background: linear-gradient(135deg, #ffa502, #ffaf40); }
+        }
+
+        .top-bar {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #ff6f00, #ff9800);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            border-radius: 10px;
+            animation: barAnimation 10s infinite alternate;
+            box-sizing: border-box;
+        }
+
+        @keyframes barAnimation {
+            0% { background: linear-gradient(135deg, #ff6f00, #ff9800); }
+            100% { background: linear-gradient(135deg, #ff9800, #ff6f00); }
+        }
+
+        .top-bar button {
+            background-color: #ff6f00;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 25px;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .top-bar button:hover {
+            background-color: #e65c00;
+        }
+
+        .left-panel, .right-panel {
+            flex: 1;
+            padding: 10px;
+            background: linear-gradient(135deg, #ffaf40, #ff9800);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            border-radius: 10px;
+            animation: panelAnimation 10s infinite alternate;
+            box-sizing: border-box;
+        }
+
+        @keyframes panelAnimation {
+            0% { background: linear-gradient(135deg, #ffaf40, #ff9800); }
+            100% { background: linear-gradient(135deg, #ff9800, #ffaf40); }
+        }
+
+        .center-panel {
+            flex: 2;
+            padding: 10px;
+            background: linear-gradient(135deg, #f7f1e3, #f1d1b5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            position: relative;
+            border-radius: 10px;
+            animation: centerPanelAnimation 10s infinite alternate;
+            box-sizing: border-box;
+        }
+
+        @keyframes centerPanelAnimation {
+            0% { background: linear-gradient(135deg, #f7f1e3, #f1d1b5); }
+            100% { background: linear-gradient(135deg, #f1d1b5, #f7f1e3); }
+        }
+
+        .content {
+            display: flex;
+            flex: 1;
+            height: calc(100% - 40px); /* Adjust for top-bar height */
+            gap: 10px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            margin: 0;
+            padding: 0;
+            font-size: 18px;
+            color: #333;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .CodeMirror {
+            height: 100%;
+            background-color: #000;
+            color: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 10px;
+        }
+
+        button[disabled] {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            color: #333;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 34px;
+            height: 20px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 50px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background-color: white;
+            transition: .4s;
+            left: 4px;
+            bottom: 4px;
+        }
+
+        input:checked + .slider {
+            background-color: #ff6f00;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(14px);
+        }
+
+        .disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .input-container {
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.3s ease;
+            height: 33.33%; /* Fixed height */
+            width: 100%; /* Full width */
+            border-radius: 10px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .input-container.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+            overflow: auto; /* Ensure scrollbar appears if content overflows */
+        }
+
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            max-height: 200px;
+        }
+
+        .file-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 10px;
+            background-color: #fff;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-list-item button {
+            background-color: #ff6f00;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .file-list-item button:hover {
+            background-color: #e65c00;
+        }
+
+        .file-note {
+            font-size: 12px;
+            color: #333;
+            margin-top: 10px;
+        }
+
+        .add-file-button {
+            background-color: #ff6f00;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 25px;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color 0.3s ease;
+            margin-top: 10px;
+            display: block;
+            width: 100%;
+        }
+
+        .add-file-button:hover {
+            background-color: #e65c00;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <button class="run-button" onclick="updatePreview()">Run</button>
+        <button class="export-button" onclick="exportFiles()">Export</button>
+        <button class="share-button" onclick="shareFiles()">Share</button>
+    </div>
+
+    <div class="content">
+        <div class="left-panel">
+            <h2>HTML</h2>
+            <div class="input-container">
+                <textarea id="html" placeholder="Write your HTML here..."></textarea>
+            </div>
+            <h2>CSS</h2>
+            <div class="input-container" id="css-container">
+                <textarea id="css" placeholder="Write your CSS here..."></textarea>
+            </div>
+            <div class="toggle-container">
+                <label class="toggle-label">Enable CSS</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="enable-css" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <h2>JavaScript</h2>
+            <div class="input-container" id="js-container">
+                <textarea id="js" placeholder="Write your JavaScript here..."></textarea>
+            </div>
+            <div class="toggle-container">
+                <label class="toggle-label">Enable JS</label>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="enable-js" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="center-panel">
+            <iframe id="preview"></iframe>
+        </div>
+
+        <div class="right-panel">
+            <h2>Files</h2>
+            <ul id="file-list" class="file-list"></ul>
+            <button id="add-file-button" class="add-file-button" onclick="document.getElementById('file-input').click()">Add File</button>
+            <input type="file" id="file-input" style="display: none;" multiple>
+            <p class="file-note">These files will not work in the editor but instead downloaded into your .zip file. It is recommended to export every time you test a file.</p>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.js"></script>
+    <script>
+        const htmlEditor = CodeMirror.fromTextArea(document.getElementById('html'), {
+            mode: 'htmlmixed',
+            lineNumbers: true,
+            theme: 'dracula'
+        });
+        const cssEditor = CodeMirror.fromTextArea(document.getElementById('css'), {
+            mode: 'css',
+            lineNumbers: true,
+            theme: 'dracula'
+        });
+        const jsEditor = CodeMirror.fromTextArea(document.getElementById('js'), {
+            mode: 'javascript',
+            lineNumbers: true,
+            theme: 'dracula'
+        });
+        const previewFrame = document.getElementById('preview');
+        const fileList = document.getElementById('file-list');
+        const fileInput = document.getElementById('file-input');
+        let files = [];
+
+        function updatePreview() {
+            const htmlContent = htmlEditor.getValue();
+            const cssEnabled = document.getElementById('enable-css').checked;
+            const jsEnabled = document.getElementById('enable-js').checked;
+
+            let cssContent = cssEnabled ? `<style>${cssEditor.getValue()}</style>` : '';
+            let jsContent = jsEnabled ? `<script>${jsEditor.getValue()}<\/script>` : '';
+
+            const previewContent = `${htmlContent}${cssContent}${jsContent}`;
+            previewFrame.srcdoc = previewContent;
+        }
+
+        function exportFiles() {
+            const zip = new JSZip();
+            zip.file("index.html", htmlEditor.getValue());
+
+            if (document.getElementById('enable-css').checked) {
+                zip.file("styles.css", cssEditor.getValue());
+            }
+            
+            if (document.getElementById('enable-js').checked) {
+                zip.file("script.js", jsEditor.getValue());
+            }
+
+            files.forEach(file => {
+                zip.file(file.name, file);
+            });
+
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                saveAs(content, "project.zip");
+            });
+        }
+
+        function shareFiles() {
+            const zip = new JSZip();
+            zip.file("index.html", htmlEditor.getValue());
+
+            if (document.getElementById('enable-css').checked) {
+                zip.file("styles.css", cssEditor.getValue());
+            }
+            
+            if (document.getElementById('enable-js').checked) {
+                zip.file("script.js", jsEditor.getValue());
+            }
+
+            files.forEach(file => {
+                zip.file(file.name, file);
+            });
+
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                const shareData = {
+                    files: [
+                        new File([content], "project.zip", { type: "application/zip" })
+                    ]
+                };
+
+                if (navigator.canShare && navigator.canShare(shareData)) {
+                    navigator.share(shareData).catch(err => console.error("Sharing failed:", err));
+                } else {
+                    alert("Sharing is not supported on this device.");
+                }
+            });
+        }
+
+        function toggleCSS() {
+            const cssContainer = document.getElementById('css-container');
+            cssContainer.classList.toggle('disabled', !document.getElementById('enable-css').checked);
+        }
+
+        function toggleJS() {
+            const jsContainer = document.getElementById('js-container');
+            jsContainer.classList.toggle('disabled', !document.getElementById('enable-js').checked);
+        }
+
+        function handleFileSelect(event) {
+            const newFiles = Array.from(event.target.files);
+            files = [...files, ...newFiles];
+            updateFileList();
+        }
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            files.forEach((file, index) => {
+                const li = document.createElement('li');
+                li.className = 'file-list-item';
+                li.textContent = file.name;
+
+                const removeButton = document.createElement('button');
+                removeButton.textContent = 'Remove';
+                removeButton.addEventListener('click', () => {
+                    files.splice(index, 1);
+                    updateFileList();
+                });
+
+                li.appendChild(removeButton);
+                fileList.appendChild(li);
+            });
+        }
+
+        document.getElementById('enable-css').addEventListener('change', toggleCSS);
+        document.getElementById('enable-js').addEventListener('change', toggleJS);
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Initialize the toggle states
+        toggleCSS();
+        toggleJS();
+    </script>
+</body>
+</html>
